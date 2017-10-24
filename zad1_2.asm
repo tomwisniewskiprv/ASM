@@ -1,5 +1,5 @@
-;zestaw  1
-;zadanie 2
+;worksheet  1
+;exercise   2
 
 segment code
 assume cs: code
