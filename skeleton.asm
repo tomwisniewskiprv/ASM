@@ -1,18 +1,20 @@
-;asm skeleton
+;asm skeleton v2
 
 ;worksheet  1
 ;exercise   1
 
-.MODEL SMALL
-.DATA
-.CODE
-main PROC
+%TITLE "SKELETON"
+    .8086
+    .MODEL small
+    .STACK 256
+    .DATA
 
-exit:
+    .CODE
+MAIN PROC
+
+Exit:
     mov ah , 4Ch
     int 21h
-main ENDP
-
-.STACK 128
-
-end main
+    
+MAIN ENDP
+END MAIN

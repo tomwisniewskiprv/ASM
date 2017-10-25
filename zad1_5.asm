@@ -8,6 +8,7 @@
 ;   ABCD***
 ;      ABCD
 .MODEL SMALL
+.STACK 128
 .DATA
 chars db 'ABCD$' 
 .CODE
@@ -67,5 +68,5 @@ main PROC
         int 21h
 
 main ENDP   ;end of code segment
-.STACK 128
+
 END main    ;end of program and execution point
