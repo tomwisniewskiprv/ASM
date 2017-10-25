@@ -1,7 +1,7 @@
 ;worksheet  1
 ;exercise   7
 
-; Draw a square.
+; Draw a square
 
 %TITLE "SQUARE"
     .8086
