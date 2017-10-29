@@ -1,81 +1,71 @@
 ;worksheet  1
-;exercise   6
+;exercise   5
 
-; Displays whole ASCII table.
-; 65 [A]
-; 66 [B] ...
+;Zaprojektowac program, korzystajac z rozwiazania zadania 3., przekazuj
+;acy na standardowe wyjscie wielowierszowa sekwencje znak?w (rys. 3).
 
+;ABCD******
+;   ABCD***
+;      ABCD
 .MODEL SMALL
-.STACK 64
 .DATA
-string  db 3 dup (0), "$"
-tmpWord dw ?
-tmpByte db 00h
-ascii dw 0AEh
-base_ten db 0Ah
-index db 0 
-
+chars db 'ABCD$' 
 .CODE
-MAIN PROC
+main PROC
 
-    mov ax , @DATA
+    mov ax , SEG DGROUP
     mov ds , ax
-    mov cx , 0Ah   ; display char counter 
     
-    PrntLoop:
-    mov ax , ascii
-    push cx ; remeber outer loop counter
-    mov cx , 03h
-    int2str:
-    ; Conversion formula:
-    div base_ten    ; divide ax by 10
-    mov bl , al
-    add al , 48     ; ascii char
-    add ah , 48     ; ascii char
-    mov tmpByte , al
-    mov bh , ah
-    ;add dl , 48     ; quotient  (iloraz)
-    ;add dh , 48     ; reminder  (reszta)
-    mov ah , 02h
-    mov dl , 05Bh   ; [
-    int 21h
-    ;mov dl , tmpByte; quotient
-    ;int 21h
-    mov dl , bh     ; reminder
-    int 21h
-    ;mov dx , [ascii]
-    ;int 21h
-    mov dl , 05Dh   ; ]
-    int 21h
-    ; save reminder
-    ;mov di , [index]
-    mov string[di] , bh ;# TODO INDEXING then read backwards
-    inc index
-    ; create word again from quotient
-    mov al , bl
-    mov ah , 0
-    cmp al , 0
-    jg int2str
-    ; end of conversion
-    inc [ascii]
-    mov index , 0
-    pop cx
+    mov bx , 00h    ; spaces
+    mov cx , 06h    ; stars
     
-    Endline:
-        mov ah , 02h  
-        mov dl , 0Dh    ;CR LF
+    print_space:
+
+    push cx     ;6
+    mov cx , bx
+    cmp cx , 0
+    je print_chars
+    
+    space_loop:
+        mov ah , 02h
+        mov dl , ' '
+        int 21h
+        loop space_loop
+                    
+    print_chars:
+        lea dx , chars
+        mov ah , 09h
+        int 21h
+    
+    pop cx ; 6
+    add bx , 3 ; 3
+    push bx
+    mov bx , cx ; 6
+    cmp cx , 0 
+    je exit
+    
+    print_stars:
+        mov ah , 02h
+        mov dl , '*'
+        int 21h
+        loop print_stars
+    
+    mov cx , bx ; 6
+    pop bx ; 3
+    sub cx , 3
+    
+    end_line:
+        mov dl , 0Dh
         int 21h
         mov dl , 0Ah
         int 21h
+        
+    jmp print_space
     
-        lea dx , string ; TEST - read number from memory
-        mov ah , 09h
+    exit:  
+        mov ah, 4ch
         int 21h
-    loop PrntLoop
 
-Exit:  
-    mov ah, 4ch
-    int 21h
-
-MAIN ENDP   ; end of main
-END MAIN    ; end of program and execution point
+main ENDP   ;end of code segment
+.STACK 128
+END main    ;end of program and execution point

@@ -10,9 +10,11 @@
 .DATA
 string  db 3 dup (0), "$"
 tmpWord dw ?
-tmpByte db 43h
-ascii dw 041h
+tmpByte db 00h
+ascii dw 0AEh
 base_ten db 0Ah
+index db 0 
+
 .CODE
 MAIN PROC
 
@@ -21,10 +23,10 @@ MAIN PROC
     mov cx , 0Ah   ; display char counter 
     
     PrntLoop:
-    ;push cx
-    ;mov cx , 3
     mov ax , ascii
-    c:
+    push cx ; save outer loop counter
+    mov cx , 03h
+    int2str:
     ; Conversion formula:
     div base_ten    ; divide ax by 10
     mov bl , al
@@ -37,31 +39,38 @@ MAIN PROC
     mov ah , 02h
     mov dl , 05Bh   ; [
     int 21h
-    mov dl , tmpByte; quotient
-    int 21h
+    ;mov dl , tmpByte; quotient
+    ;int 21h
     mov dl , bh     ; reminder
     int 21h
-    mov dx , [ascii]
-    int 21h
+    ;mov dx , [ascii]
+    ;int 21h
     mov dl , 05Dh   ; ]
     int 21h
-   
+    ; save reminder
+    ;mov di , [index]
+    mov string[di] , bh ;# TODO INDEXING then read backwards
+    inc index
     ; create word again from quotient
     mov al , bl
     mov ah , 0
-    cmp al , 10
-    jg c
+    cmp al , 0
+    jg int2str
     ; end of conversion
-    ;pop cx
     inc [ascii]
-    
+    mov index , 0
+    pop cx
     
     Endline:
+        mov ah , 02h  
         mov dl , 0Dh    ;CR LF
         int 21h
         mov dl , 0Ah
         int 21h
     
+        lea dx , string ; TEST - read number from memory
+        mov ah , 09h
+        int 21h
     loop PrntLoop
 
 Exit:  
