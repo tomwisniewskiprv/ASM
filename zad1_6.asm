@@ -14,8 +14,6 @@ ascii dw 00h    ; A 65 041h , d 100 64h ; ascii table index
 charCount dw 0100h ; how many chars to dispaly
 base_ten db 0Ah ; base for division  
 
-column dw 0 ; column
-
 .CODE
 MAIN PROC
 
