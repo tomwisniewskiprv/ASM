@@ -1,5 +1,5 @@
 ;worksheet  2
-;exercise   17
+;exercise   18
 
 ;AH = 07h - DIRECT CHARACTER INPUT, WITHOUT ECHO
 ;Return: AL = character read from standard input
@@ -13,13 +13,17 @@
 ;AH = 09h  AL = Character, BH = Page Number, BL = Color,
 ;CX = Number of times to print character
 
-%TITLE "CONNECT EDGES"
+; WARNING !
+; to compile add /jJUMPS directive
+
+%TITLE "TAIL"
     .8086
     .MODEL small
     .STACK 256
     .DATA
 ENTER_KEY equ 0Dh
-ESC_KEY equ 1Bh ; exit
+ESC_KEY equ 1Bh     ; exit
+SPACE_KEY equ 20h   ; space
 U_KEY equ 48h
 D_KEY equ 50h
 L_KEY equ 4Bh
@@ -34,22 +38,26 @@ F6_KEY equ 40h
 F7_KEY equ 41h
 F8_KEY equ 42h
 
-row db 0
-col db 0
+tmpByte db 0h
+
+row db 0    ; cursor position
+col db 0    ; cursor position
 star db "*"
 space db 020h 
+cursor_visible db 01h
 
-color_update db 00H
+color        db 01fH   ; defualt cursor color
 color_yellow db 0EEh
 
-color_grey db 077h
-color_blue db 011h
-color_green db 022h
-color_bblue db 0BBh
-color_red db 044h
-color_pink db 0CCh
-color_brown db 066h
-color_white db 0FFh
+; 0f black bg white cursor
+color_grey  db 07fh
+color_blue  db 01fh
+color_green db 02fh
+color_bblue db 0Bfh
+color_red   db 04fh
+color_pink  db 0Cfh
+color_brown db 06fh
+color_white db 0F1h
 
 
     .CODE
@@ -61,8 +69,11 @@ MAIN PROC
    ; cursor starting position
     mov ah , 02h
     mov bh , 00h
+    mov bl , color
     mov dx , 00h
     int 10h
+    
+    jmp printSpace ; first char 0,0
     
     readUntilESC:
     mov ah , 07h
@@ -94,6 +105,9 @@ MAIN PROC
     je F7
     cmp al , F7_KEY
     je F8
+    
+    cmp al , SPACE_KEY ; space
+    je tailVisible
     
     cmp al , ESC_KEY
     jne readUntilESC ; loop until ESC
@@ -139,40 +153,70 @@ MAIN PROC
     ; colors
     F1:
     mov bl , color_grey
-    jmp printCursor
+    mov color , bl
+    jmp readUntilESC
     F2:
     mov bl , color_blue
-    jmp printCursor
+    mov color , bl
+    jmp readUntilESC
     F3:
     mov bl , color_green
-    jmp printCursor
+    mov color , bl
+    jmp readUntilESC
     F4:
     mov bl , color_bblue
-    jmp printCursor
+    mov color , bl
+    jmp readUntilESC
     F5:
     mov bl , color_red
-    jmp printCursor
+    mov color , bl
+    jmp readUntilESC
     F6:
     mov bl , color_pink
-    jmp printCursor
+    mov color , bl
+    jmp readUntilESC
     F7:
     mov bl , color_brown
-    jmp printCursor
+    mov color , bl
+    jmp readUntilESC
     F8:
     mov bl , color_white 
-    jmp printCursor
+    mov color , bl
+    jmp readUntilESC 
     
+    tailVisible:
+    mov tmpByte , bl
+    mov bl , cursor_visible
+    cmp bl , 1
+    je swapTailColor    
+    mov cursor_visible , 1 ; change cursor status to visible
+    jmp readUntilESC
     
+    swapTailColor:
+    mov cursor_visible , 0 ; change cursor status to invisible
+    jmp readUntilESC
+        
     ; print char and go back to main loop
     printCursor:
-    ; move to new position
+    ; move cursor to new position
     mov ah , 02h
     mov bh , 00h
     int 10h
     
-    ; print space 
+    ; is cursor visible
+    mov ah , cursor_visible
+    cmp ah , 1
+    je printC
+    mov bl , 0fh ; if not print blank space
+    jmp printSpace
+ 
+    printC: ; if it is print it with current color
+    mov bl , color
+    jmp printSpace   
+    
+    printSpace :   
     mov ah , 09h
-    mov al , space   ; space
+    mov al , space   ; space char
     mov cx , 01h
     int 10h
        
