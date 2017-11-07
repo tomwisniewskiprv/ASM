@@ -27,7 +27,6 @@ About db "Author: Tomasz Wisniewski 2017$"
 number_row   db 2 dup(41h) , "$"    ; ascii number row
 number_col   db 2 dup(41h) , "$"    ; ascii number col
 
-quotient db 00h     ; iloraz
 base_10  db 0Ah
     
 ENTER_KEY equ 0Dh
