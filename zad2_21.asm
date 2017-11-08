@@ -1,11 +1,11 @@
 ;worksheet  2
-;exercise   20
+;exercise   21
 
 ; SNAKE 
 ;  0  1  2  3 .... 9
 ; tail[0]   -->  head[9]
 
-%TITLE "SNAKE 10 spaces"
+%TITLE "Automatic movement with delay"
     .8086
     .MODEL small
     .STACK 256
@@ -14,6 +14,12 @@
 ;   DATA SEGEMENT             ;
 ;-----------------------------;
 DATA SEGMENT
+    
+direction  db 00h   ; 0 - right , 1 - down , 2 - left , 3 - up
+delay      dw 0350h ; INT 15H 86H: Wait
+                    ; Expects: AH    86H
+                    ; CX,DX interval in microseconds (1,000,000ths of a second)
+                    ; CX is high word, DX is low word
 
 snake_len  equ 0Ah
 sl         db snake_len
@@ -78,7 +84,7 @@ Main PROC
     
     ;call ClrScr ; there is no need for this call for now
     
-   ; cursor starting position
+    ; cursor starting position
     mov ah , 02h
     mov bh , 00h   ; page
     mov bl , color ; color
@@ -89,17 +95,24 @@ Main PROC
 
     ; main loop
     readUntilESC:
+    
+    mov ah , 0Bh    ; check stdin status , returns al
+    int 21h
+    cmp al , 00h
+    je continue_mov
+    
     mov ah , 07h    ; read keyboard input
     int 21h
-   
+    
+    ; 0 - right , 1 - down , 2 - left , 3 - up
     cmp al , U_KEY
-    je UP
+    je Change_dir_UP
     cmp al , D_KEY
-    je DOWN
+    je Change_dir_DOWN
     cmp al , L_KEY
-    je LEFT
+    je Change_dir_LEFT    
     cmp al , R_KEY
-    je RIGHT
+    je Change_dir_RIGHT
     
     ; function keys go here
     cmp al , F1_KEY
@@ -123,7 +136,36 @@ Main PROC
     jne readUntilESC ; loop until ESC
     jmp Exit
     
-    ; update cursor poistion, console resolution 80x25 (0-79 x 0-24)
+
+    ; 0 - right , 1 - down , 2 - left , 3 - up
+    Change_dir_RIGHT:
+    mov direction , 00h
+    jmp continue_mov 
+    
+    Change_dir_DOWN:
+    mov direction , 01h
+    jmp continue_mov 
+    
+    Change_dir_LEFT:
+    mov direction , 02h
+    jmp continue_mov 
+    
+    Change_dir_UP:
+    mov direction , 03h
+    jmp continue_mov 
+    
+    ; decide where to move head
+    continue_mov:
+    cmp direction , 03h
+    je UP
+    cmp direction , 01h
+    je DOWN
+    cmp direction , 02h
+    je LEFT
+    cmp direction , 00h
+    je RIGHT
+    
+    ; check console borders. resolution 80x25 (0-79 x 0-24)
     UP:
     cmp dh , 0
     je border_top
@@ -200,7 +242,18 @@ Main PROC
     
     printSnake:    
     call DrawSnake
- 
+   
+    ; delay  
+    ; INT 15h / AH = 86h - BIOS wait function
+    ; CX:DX = interval in microseconds  
+    
+    push dx ; save head postion 
+    mov cx , 01h
+    mov dx , delay
+    mov ah , 86h
+    int 15h
+    pop dx
+    
     jmp readUntilESC ; main loop
     
 Exit:
@@ -247,6 +300,8 @@ UpdateSnake PROC
     
     mov snake_row[snake_len - 1] , dh
     mov snake_col[snake_len - 1] , dl
+    
+    xor cx , cx
     
     ret
 UpdateSnake ENDP
@@ -309,13 +364,14 @@ DrawSnake PROC
     int 10h
     
     xor cx , cx
+    
     ret    
     
 DrawSnake ENDP
 
 
 ClrScr PROC
-; Clear screen
+; Clear screen , just in case
 mov dl , 20h
 mov cx , 4000
 whole_screen:    
