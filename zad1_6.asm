@@ -8,11 +8,11 @@
 .MODEL SMALL
 .STACK 64
 .DATA
-string  db 3 dup (020h), " $" ; range 0 - 255
-quotient db 00h
-ascii dw 00h    ; A 65 041h , d 100 64h ; ascii table index
+string    db 3 dup (020h), " $" ; range 0 - 255
+quotient  db 00h
+ascii     dw 00h    ; A 65 041h , d 100 64h ; ascii table index
 charCount dw 0100h ; how many chars to dispaly
-base_ten db 0Ah ; base for division  
+base_ten  db 0Ah ; base for division  
 
 .CODE
 MAIN PROC

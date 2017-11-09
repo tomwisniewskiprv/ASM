@@ -1,11 +1,7 @@
 ;worksheet  2
-;exercise   21
+;exercise   22
 
-; SNAKE 
-;  0  1  2  3 .... 9
-; tail[0]   -->  head[9]
-
-%TITLE "Automatic movement with delay"
+%TITLE "Random 25 stars."
     .8086
     .MODEL small
     .STACK 256
@@ -13,7 +9,15 @@
 ;-----------------------------;
 ;   DATA SEGEMENT             ;
 ;-----------------------------;
-DATA SEGMENT
+DATA SEGMENT   
+stars      equ 02h  ; store 25 stars    
+
+star_row   db stars dup (00h)
+star_col   db stars dup (01h) 
+
+star_count db stars ; stars left
+
+sys_time   dw 00h
     
 direction  db 00h   ; 0 - right , 1 - down , 2 - left , 3 - up
 delay      dw 0350h ; INT 15H 86H: Wait
@@ -82,8 +86,10 @@ Main PROC
     mov ax , DATA   ; load data segment
     mov ds , ax
     
-    ;call ClrScr ; there is no need for this call for now
-    
+    ; generate stars data
+    ;call GenerateStars   ; TODO Finish
+
+ 
     ; cursor starting position
     mov ah , 02h
     mov bh , 00h   ; page
@@ -136,7 +142,6 @@ Main PROC
     jne readUntilESC ; loop until ESC
     jmp Exit
     
-
     ; 0 - right , 1 - down , 2 - left , 3 - up
     Change_dir_RIGHT:
     mov direction , 00h
@@ -236,6 +241,9 @@ Main PROC
     mov head_dl , dl
     mov head_dh , dh
     
+    ; #TODO HERE , sprawdzic czy na tej pozycji nie ma gwiazdki
+    call CheckStarAt
+    
     update_snake:
     call UpdateSnake
     jmp printSnake
@@ -243,11 +251,12 @@ Main PROC
     printSnake:    
     call DrawSnake
    
+    call DrawStars
     ; delay  
     ; INT 15h / AH = 86h - BIOS wait function
     ; CX:DX = interval in microseconds  
     
-    push dx ; save head postion and wait
+    push dx ; save head postion 
     mov cx , 01h
     mov dx , delay
     mov ah , 86h
@@ -316,6 +325,7 @@ DrawSnake PROC
 ; AH = 09h  AL = Character, BH = Page Number, BL = Color,
 ; CX = Number of times to print character
     xor cx , cx
+    xor si , si
     mov al , SPACE_CHR  ; space - char
     mov bh , 00h
     
@@ -364,11 +374,98 @@ DrawSnake PROC
     int 10h
     
     xor cx , cx
-    
     ret    
-    
 DrawSnake ENDP
 
+DrawStars PROC
+    push ax
+    push bx
+    push cx
+    push dx
+  
+    xor cx , cx
+    DrawStarsLoop:
+    mov bx , cx 
+    mov dh , star_row[bx]
+    mov dl , star_col[bx]
+    
+    mov ah , 02h    ; set position
+    int 10h
+    
+    mov ah , 09h    ; draw char
+    mov al , "*"
+    push cx
+    mov cx , 01h
+    mov bl , 02h    ; star color
+    int 10h
+    pop cx
+    
+    mov bx , word ptr star_count
+    inc cx 
+    cmp cx , bx
+    jl DrawStarsLoop
+    
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    
+    ret
+DrawStars ENDP
+
+CheckStarAt PROC
+    push ax
+    push bx
+    push cx
+    push dx
+    
+    xor cx , cx
+    xor si , si
+    
+    is_there_star:
+    mov si , cx
+    
+    mov ah , head_dh
+    mov al , head_dl
+    
+    cmp star_row[si] , ah
+    jne next_star
+    cmp star_col[si] , al
+    jne next_star
+    jmp found_star
+    
+    found_star:
+    mov ah , 07h
+    int 21h
+    
+    dec star_count
+    xor cx , cx
+    mov cx , word ptr star_count
+    cmp cx , 0 
+    jz Exit
+    
+    inc si
+    mov ah , star_row[si]
+    mov al , star_col[si]
+    dec si
+    mov star_row[si] , ah
+    mov star_col[si] , al
+
+    jmp exit_check_star_at
+    
+    next_star:
+    inc cx 
+    cmp cx , word ptr star_count
+    jne is_there_star
+
+    exit_check_star_at:
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    
+    ret
+CheckStarAt ENDP
 
 ClrScr PROC
 ; Clear screen , just in case
@@ -380,6 +477,8 @@ whole_screen:
     loop whole_screen
 ret
 ClrScr ENDP
+
+
 
 ;-----------------------------;
 ;   END OF PROCEDURES         ;
