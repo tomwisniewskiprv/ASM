@@ -4,16 +4,18 @@
 %TITLE "Random 25 stars."
     .8086
     .MODEL small
-    .STACK 256
-    
+MAINSTACK SEGMENT STACK 
+    dw 256 dup (?)
+    pointer label word
+MAINSTACK ENDS
 ;-----------------------------;
 ;   DATA SEGEMENT             ;
 ;-----------------------------;
 DATA SEGMENT   
-stars      equ 02h  ; store 25 stars    
+stars      equ 25  ; store 25 stars    
 
 star_row   db stars dup (00h)
-star_col   db stars dup (01h) 
+star_col   db stars dup (00h) 
 
 star_count db stars ; stars left
 
@@ -72,6 +74,11 @@ color_red    db 04Fh
 color_pink   db 0CFh
 color_brown  db 06Fh
 color_white  db 0FFh
+
+msg1 db "Generating stars , please wait" , 0Dh , 0Ah , "$"
+msg2 db "ESC pressed , exiting" , 0Dh , 0Ah , "$"
+msg3 db "You have won! thanks for playing!" , 0Dh , 0Ah , "$"
+
 DATA ENDS
 ;-----------------------------;
 ;   END OF DATA SEGEMENT      ;
@@ -81,15 +88,26 @@ DATA ENDS
 ;   CODE SEGEMENT             ;
 ;-----------------------------;
 CODE SEGMENT
-    ASSUME CS:CODE , DS:DATA
+    ASSUME CS:CODE , DS:DATA , SS:MAINSTACK
 Main PROC
-    mov ax , DATA   ; load data segment
+    mov ax , seg DATA   ; load data segment
     mov ds , ax
     
+    mov ax , seg MAINSTACK ; load stack segment
+    mov ss , ax
+    
+    mov sp , offset pointer ; set stack pointer
+        
+    mov ah , 01h    ; hide blinking cursor
+    mov ch , 2Bh
+    mov cl , 0Bh
+    int 10h
+    
     ; generate stars data
-    ;call GenerateStars   ; TODO Finish
+    call GenerateStars   
+    
+    call ClrScr
 
- 
     ; cursor starting position
     mov ah , 02h
     mov bh , 00h   ; page
@@ -140,6 +158,12 @@ Main PROC
     
     cmp al , ESC_KEY
     jne readUntilESC ; loop until ESC
+    
+    call ClrScr
+    lea dx , msg2
+    mov ah , 09h
+    int 21h
+    
     jmp Exit
     
     ; 0 - right , 1 - down , 2 - left , 3 - up
@@ -241,7 +265,6 @@ Main PROC
     mov head_dl , dl
     mov head_dh , dh
     
-    ; #TODO HERE , sprawdzic czy na tej pozycji nie ma gwiazdki
     call CheckStarAt
     
     update_snake:
@@ -252,10 +275,11 @@ Main PROC
     call DrawSnake
    
     call DrawStars
+    
     ; delay  
     ; INT 15h / AH = 86h - BIOS wait function
     ; CX:DX = interval in microseconds  
-    
+        
     push dx ; save head postion 
     mov cx , 01h
     mov dx , delay
@@ -268,12 +292,102 @@ Main PROC
 Exit:
     mov ah , 4Ch
     int 21h
+
+Exit_win:
+    call ClrScr
+    lea dx , msg3
+    mov ah , 09h
+    int 21h
+    jmp Exit
     
 Main ENDP
 
 ;-----------------------------;
 ;   PROCEDURES                ;
 ;-----------------------------;
+GenerateStars PROC
+; Procedure generates random star's coordinates based on local time
+    push ax
+    push bx
+    push cx
+    push dx
+    
+    lea dx , msg1
+    mov ah , 09h
+    int 21h
+    
+    xor ax , ax
+    xor bx , bx
+    xor cx , cx
+    xor dx , dx
+    
+    next_c:
+    push cx
+    mov cx , 02h
+    mov dx , 50h
+    mov ah , 86h ; delay
+    mov al , 00h
+    int 15h
+    
+    mov ah , 2ch ; get system time
+    int 21h      ; CH = hours CL = minutes DH=seconds DL=1/100s microseconds
+    xor ax , ax
+    mov al , dl
+    
+    cmp al , 80
+    jle le80    ; if dl less equal 80 
+    sub al , 20 ; substract 20 to get random column value
+    le80:
+    mov col , al
+    
+    pop cx
+    mov al , col
+    mov bx , cx
+    mov star_col[bx] , al
+    push cx
+    
+    mov cx , 01h
+    mov dx , 70h
+    mov ah , 86h ; delay
+    mov al , 00h
+    int 15h
+    
+    mov ah , 2ch ; get system time
+    int 21h      ; CH = hours CL = minutes DH=seconds DL=1/100s microseconds
+    xor ax , ax
+    mov al , dl
+    
+    cmp al , 50
+    jle le50    ; if dl less equal 50 
+    sub al , 50 ; substract 50 to get random row value
+    le50:
+    cmp al , 25
+    jl le24
+    sub al , 26
+    le24:
+    
+    cmp al , 25
+    jne save_r
+    mov al , 24
+    
+    save_r:
+    mov row , al
+    
+    pop cx
+    mov bx , cx
+    mov star_row[bx] , al
+    
+    inc cx 
+    cmp cx , word ptr star_count
+    jne next_c
+    
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+GenerateStars ENDP
+
 
 UpdateSnake PROC
     xor cx , cx
@@ -435,22 +549,39 @@ CheckStarAt PROC
     jmp found_star
     
     found_star:
-    mov ah , 07h
+    mov ah , 07h ; sanity check
     int 21h
+    
+    ; draw empty space
+    mov dl , al
+    mov dh , ah
+    mov ah , 02h    ; set position
+    int 10h
+    
+    mov ah , 09h    ; draw empty space
+    mov al , SPACE_CHR
+    mov cx , 01h
+    mov bl , 00h
+    int 10h
     
     dec star_count
     xor cx , cx
     mov cx , word ptr star_count
     cmp cx , 0 
-    jz Exit
+    jz Exit_win
     
-    inc si
+    move_stars_left:
+    inc si  
     mov ah , star_row[si]
     mov al , star_col[si]
     dec si
     mov star_row[si] , ah
     mov star_col[si] , al
-
+    
+    inc si 
+    
+    cmp si , word ptr star_count
+    jle move_stars_left
     jmp exit_check_star_at
     
     next_star:
@@ -469,16 +600,25 @@ CheckStarAt ENDP
 
 ClrScr PROC
 ; Clear screen , just in case
-mov dl , 20h
-mov cx , 4000
-whole_screen:    
     mov ah , 02h
-    int 21h
-    loop whole_screen
-ret
+    mov bh , 00h
+    xor dx , dx
+    int 10h
+
+    mov dl , 20h
+    mov cx , 4000
+    whole_screen:    
+        mov ah , 02h
+        int 21h
+        loop whole_screen
+        
+    mov ah , 02h
+    mov bh , 00h
+    xor dx , dx
+    int 10h
+
+    ret
 ClrScr ENDP
-
-
 
 ;-----------------------------;
 ;   END OF PROCEDURES         ;
