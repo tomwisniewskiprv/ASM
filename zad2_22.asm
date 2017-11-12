@@ -106,6 +106,7 @@ Main PROC
     ; generate stars data
     call GenerateStars   
     
+    ; clear screen
     call ClrScr
 
     ; cursor starting position
@@ -357,20 +358,19 @@ GenerateStars PROC
     xor ax , ax
     mov al , dl
     
+    ;cmp al , 100
+    ;jne le50
+    ;sub al , 76
+    
     cmp al , 50
     jle le50    ; if dl less equal 50 
     sub al , 50 ; substract 50 to get random row value
     le50:
-    cmp al , 25
-    jl le24
-    sub al , 26
-    le24:
-    
-    cmp al , 25
-    jne save_r
-    mov al , 24
-    
-    save_r:
+    cmp al , 23 ; row range 0 - 24 , where 24 is reserved for status text
+    jl le25
+    sub al , 27
+    le25:
+   
     mov row , al
     
     pop cx
@@ -390,6 +390,7 @@ GenerateStars ENDP
 
 
 UpdateSnake PROC
+; Update snake coordinates data after key press
     xor cx , cx
     mov cx , 01h
     xor si , si
@@ -430,6 +431,8 @@ UpdateSnake PROC
 UpdateSnake ENDP
 
 DrawSnake PROC
+; Draws snake
+;
 ; Set cursor position
 ; int 10h
 ; AH = 02h  BH = Page Number, DH = Row, DL = Column < !!
@@ -528,6 +531,8 @@ DrawStars PROC
 DrawStars ENDP
 
 CheckStarAt PROC
+; Checks if there is a star at head coordinates. If there is remove it from 
+; star list and shift array left by 1 posistion
     push ax
     push bx
     push cx
@@ -549,8 +554,6 @@ CheckStarAt PROC
     jmp found_star
     
     found_star:
-    mov ah , 07h ; sanity check
-    int 21h
     
     ; draw empty space
     mov dl , al
@@ -570,7 +573,7 @@ CheckStarAt PROC
     cmp cx , 0 
     jz Exit_win
     
-    move_stars_left:
+    move_stars_left: ; shift array left
     inc si  
     mov ah , star_row[si]
     mov al , star_col[si]
