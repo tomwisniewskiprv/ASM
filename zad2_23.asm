@@ -1,11 +1,11 @@
 ;worksheet  2
-;exercise   22
+;exercise   23
 
-%TITLE "Random 25 stars."
+%TITLE "Random 25 stars with colors"
     .8086
     .MODEL small
 MAINSTACK SEGMENT STACK 
-    dw 256 dup (?)
+    dw 1024 dup (?)
     pointer label word
 MAINSTACK ENDS
 ;-----------------------------;
@@ -13,35 +13,46 @@ MAINSTACK ENDS
 ;-----------------------------;
 DATA SEGMENT   
 stars      equ 25  ; store 25 stars    
+                   
+            ; star recognition constants 
+r_star     equ 04h ; red star
+b_star     equ 01h ; blue star
+g_star     equ 02h ; green star
 
-star_row   db stars dup (00h)
-star_col   db stars dup (00h) 
+            ; speed modification values
+delay      dw  0FFFFh ; delay interval , snake's speed , lower = faster
+interval   equ 1F4h   ; basic value 
+r_interval equ interval         ; red star interval
+b_interval equ interval * 2     ; blue star interval
+g_interval equ interval * 3     ; green star inverval
 
-star_count db stars ; stars left
+star_row   db stars dup (00h) ; row
+star_col   db stars dup (00h) ; column
+star_clr   db stars dup (00h) ; color
 
-sys_time   dw 00h
+star_count db stars ; stars left on screen
+
+sys_time   db 00h   ; saved system time
     
-direction  db 00h   ; 0 - right , 1 - down , 2 - left , 3 - up
-delay      dw 0350h ; INT 15H 86H: Wait
-                    ; Expects: AH    86H
-                    ; CX,DX interval in microseconds (1,000,000ths of a second)
-                    ; CX is high word, DX is low word
+direction  db 00h   ; snake's movement direction 
+                    ; 0 - right , 1 - down , 2 - left , 3 - up
 
-snake_len  equ 0Ah
+snake_len  equ 0Ah  ; length of snake
 sl         db snake_len
 snake_row  db snake_len dup (00h) ; snake cords data
 snake_col  db snake_len dup (00h) ; snake cords data
 
-head_dl    db 00h
-head_dh    db 00h
+head_dl    db 00h   ; updated head and tail coordinates
+head_dh    db 00h   
 tail_dl    db 00h
 tail_dh    db 00h  
 
 is_snake_visible db 0 ; status flag for first 10 moves, when it's less then ten
                       ; first position 0,0 will be displayed. main goal is to simulate
                       ; snake's roll out.
+
 ENTER_KEY equ 0Dh
-ESC_KEY equ 1Bh ; exit
+ESC_KEY   equ 1Bh ; exit
 SPACE_CHR equ 20h
 
 U_KEY equ 48h   ; arrow keys
@@ -64,19 +75,19 @@ star    db "*"
 
 color        db 5fh ; current color
 color_bg     db 00h
-color_yellow db 0EEh
 
+color_yellow db 0EEh
 color_grey   db 07Fh
 color_blue   db 01Fh
 color_green  db 02Fh
-color_bblue  db 0BFh
+color_bblue  db 0BFh ; bright blue
 color_red    db 04Fh
 color_pink   db 0CFh
 color_brown  db 06Fh
 color_white  db 0FFh
 
-msg1 db "Generating stars , please wait" , 0Dh , 0Ah , "$"
-msg2 db "ESC pressed , exiting" , 0Dh , 0Ah , "$"
+msg1 db "Generating stars , please wait." , 0Dh , 0Ah , "$"
+msg2 db "ESC pressed , exiting." , 0Dh , 0Ah , "$"
 msg3 db "You have won! thanks for playing!" , 0Dh , 0Ah , "$"
 
 DATA ENDS
@@ -90,6 +101,7 @@ DATA ENDS
 CODE SEGMENT
     ASSUME CS:CODE , DS:DATA , SS:MAINSTACK
 Main PROC
+    ; program initialization routines
     mov ax , seg DATA   ; load data segment
     mov ds , ax
     
@@ -116,6 +128,7 @@ Main PROC
     xor dx , dx    ; starting position dh , dl
     int 10h
     
+    ; start, main loop execution point
     jmp printSnake ; first position 0,0 , start main loop
 
     ; main loop
@@ -123,7 +136,7 @@ Main PROC
     
     mov ah , 0Bh    ; check stdin status , returns al
     int 21h
-    cmp al , 00h
+    cmp al , 00h    ; there is nothing in queue
     je continue_mov
     
     mov ah , 07h    ; read keyboard input
@@ -161,7 +174,7 @@ Main PROC
     jne readUntilESC ; loop until ESC
     
     call ClrScr
-    lea dx , msg2
+    lea dx , msg2    ; display "Pressed ESC"
     mov ah , 09h
     int 21h
     
@@ -270,23 +283,13 @@ Main PROC
     
     update_snake:
     call UpdateSnake
-    jmp printSnake
     
     printSnake:    
     call DrawSnake
    
     call DrawStars
-    
-    ; delay  
-    ; INT 15h / AH = 86h - BIOS wait function
-    ; CX:DX = interval in microseconds  
-        
-    push dx ; save head postion 
-    mov cx , 01h
-    mov dx , delay
-    mov ah , 86h
-    int 15h
-    pop dx
+   
+    call DelayProc
     
     jmp readUntilESC ; main loop
     
@@ -294,7 +297,7 @@ Exit:
     mov ah , 4Ch
     int 21h
 
-Exit_win:
+Exit_win:           
     call ClrScr
     lea dx , msg3
     mov ah , 09h
@@ -306,14 +309,39 @@ Main ENDP
 ;-----------------------------;
 ;   PROCEDURES                ;
 ;-----------------------------;
+;=====================================================================
+DelayProc PROC
+; Delay between next frames     
+
+; INT 15h / AH = 86h - BIOS wait function
+
+; INT 15H 86H: Wait
+; Expects: AH    86H
+; CX:DX = interval in microseconds  
+
+; CX is high word, DX is low word
+
+    push dx ; save current head position 
+    mov cx , 00h    ; #delay
+    
+    mov dx , delay
+    mov ah , 86h
+    int 15h
+    pop dx
+    
+    ret
+DelayProc ENDP
+;=====================================================================
 GenerateStars PROC
-; Procedure generates random star's coordinates based on local time
+; Procedure generates random star's coordinates and color
+; based on local time
+ 
     push ax
     push bx
     push cx
     push dx
     
-    lea dx , msg1
+    lea dx , msg1 ; display "please be patient"
     mov ah , 09h
     int 21h
     
@@ -330,6 +358,7 @@ GenerateStars PROC
     mov al , 00h
     int 15h
     
+    ; random column ======================
     mov ah , 2ch ; get system time
     int 21h      ; CH = hours CL = minutes DH=seconds DL=1/100s microseconds
     xor ax , ax
@@ -347,6 +376,7 @@ GenerateStars PROC
     mov star_col[bx] , al
     push cx
     
+    ; random row ==========================
     mov cx , 01h
     mov dx , 70h
     mov ah , 86h ; delay
@@ -356,17 +386,13 @@ GenerateStars PROC
     mov ah , 2ch ; get system time
     int 21h      ; CH = hours CL = minutes DH=seconds DL=1/100s microseconds
     xor ax , ax
-    mov al , dl
-    
-    ;cmp al , 100
-    ;jne le50
-    ;sub al , 76
-    
+    mov al , dl  ; microseconds ; save system time for later
+      
     cmp al , 50
     jle le50    ; if dl less equal 50 
     sub al , 50 ; substract 50 to get random row value
     le50:
-    cmp al , 23 ; row range 0 - 24 , where 24 is reserved for status text
+    cmp al , 24 ; row range 0 - 24 , where 24 is reserved for status text
     jl le25
     sub al , 26
     le25:
@@ -376,6 +402,21 @@ GenerateStars PROC
     pop cx
     mov bx , cx
     mov star_row[bx] , al
+    
+    ; assign random color to star at cx
+    mov al , dl          ; dl 1/100 sec from system time
+    mov ah , 00h
+    mov bx , 03h
+    div bl              ; al = quotient ah = reminder (0-2)
+    mov bx , cx
+    
+    ; 0 - red , 1 - blue , 2 - green
+    cmp ah , 00h 
+    jne save_color
+    mov ah , 04h    ; red color has 04h value , blue 01h , green 02h 
+    
+    save_color:
+    mov star_clr[bx] , ah
     
     inc cx 
     cmp cx , word ptr star_count
@@ -387,8 +428,7 @@ GenerateStars PROC
     pop ax
     ret
 GenerateStars ENDP
-
-
+;=====================================================================
 UpdateSnake PROC
 ; Update snake coordinates data after key press
     xor cx , cx
@@ -429,7 +469,7 @@ UpdateSnake PROC
     
     ret
 UpdateSnake ENDP
-
+;=====================================================================
 DrawSnake PROC
 ; Draws snake
 ;
@@ -493,8 +533,9 @@ DrawSnake PROC
     xor cx , cx
     ret    
 DrawSnake ENDP
-
+;=====================================================================
 DrawStars PROC
+; Draws stars according to their position saved in star_row & star_col
     push ax
     push bx
     push cx
@@ -509,11 +550,15 @@ DrawStars PROC
     mov ah , 02h    ; set position
     int 10h
     
+    mov ah , star_clr[bx] ; change color
+    mov bl , ah
+    
     mov ah , 09h    ; draw char
     mov al , "*"
+    
     push cx
     mov cx , 01h
-    mov bl , 02h    ; star color
+    
     int 10h
     pop cx
     
@@ -529,10 +574,10 @@ DrawStars PROC
     
     ret
 DrawStars ENDP
-
+;=====================================================================
 CheckStarAt PROC
 ; Checks if there is a star at head coordinates. If there is remove it from 
-; star list and shift array left by 1 posistion
+; star list and shift array left by 1 position
     push ax
     push bx
     push cx
@@ -554,10 +599,36 @@ CheckStarAt PROC
     jmp found_star
     
     found_star:
+    mov dl , al     ; save cords
+    mov dh , ah
+
+    ; decrease #delay based on star color
+    mov ax , delay
+    xor bx , bx
+    mov bl , star_clr[si]
+    
+    ; new delay calculation
+    cmp bl , r_star
+    jne b_clr
+    mov bx , r_interval
+    jmp new_delay
+    
+    b_clr:
+    cmp bl , b_star
+    jne g_clr
+    mov bx , b_interval
+    jmp new_delay
+    
+    g_clr:
+    cmp bl , g_star
+    jne new_delay
+    mov bx , g_interval
+    
+    new_delay: ; updated (decreased) delay
+    sub ax , bx
+    mov delay , ax
     
     ; draw empty space
-    mov dl , al
-    mov dh , ah
     mov ah , 02h    ; set position
     int 10h
     
@@ -567,19 +638,21 @@ CheckStarAt PROC
     mov bl , 00h
     int 10h
     
-    dec star_count
+    dec star_count  ; decrement star counter
     xor cx , cx
     mov cx , word ptr star_count
     cmp cx , 0 
     jz Exit_win
     
-    move_stars_left: ; shift array left
+    move_stars_left: ; shift coordinates array left
     inc si  
     mov ah , star_row[si]
     mov al , star_col[si]
+    mov bl , star_clr[si] ;shift color array
     dec si
     mov star_row[si] , ah
     mov star_col[si] , al
+    mov star_clr[si] , bl ;shift color array
     
     inc si 
     
@@ -600,9 +673,9 @@ CheckStarAt PROC
     
     ret
 CheckStarAt ENDP
-
+;=====================================================================
 ClrScr PROC
-; Clear screen , just in case
+; Clear screen and reset cursor to 0,0
     mov ah , 02h
     mov bh , 00h
     xor dx , dx
@@ -622,7 +695,7 @@ ClrScr PROC
 
     ret
 ClrScr ENDP
-
+;=====================================================================
 ;-----------------------------;
 ;   END OF PROCEDURES         ;
 ;-----------------------------;
