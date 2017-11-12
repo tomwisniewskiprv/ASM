@@ -7,14 +7,12 @@
     .8086
     .MODEL small
 MAINSTACK SEGMENT STACK 
-    dw 1024 dup(?) ; podw?jne s?owo, dup-duplikat ?-brak okre?lonej warto?ci
-                   ; pojemno?? 1024
+    dw 1024 dup(?) 
     sptr label word
     
 MAINSTACK ENDS
 DATA SEGMENT
-    los1 dw 0
-    los2 dw 0
+
 DATA ENDS
 CODE SEGMENT
     assume cs:code , ds:data

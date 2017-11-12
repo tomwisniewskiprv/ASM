@@ -12,7 +12,7 @@ MAINSTACK ENDS
 ;   DATA SEGEMENT             ;
 ;-----------------------------;
 DATA SEGMENT   
-stars      equ 25  ; store 25 stars    
+stars      equ 5  ; store 25 stars    
                    
             ; star recognition constants 
 r_star     equ 04h ; red star
