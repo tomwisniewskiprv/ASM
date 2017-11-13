@@ -1,7 +1,6 @@
 ;worksheet  1
-;exercise   9
+;exercise   8
 
-; To zadanie jest identyczne z zadaniami 7 i 8 
 %TITLE "SQUARE with ASCII 177"
     .8086
     .MODEL small
@@ -12,10 +11,7 @@ MAINSTACK SEGMENT STACK
 MAINSTACK ENDS
 DATA SEGMENT
     
-    ; To display square just modify it's length and base row/column to draw 
-    ; figure somewhere else
-    
-    lenght equ 8     ; border lenght , it shouldn't equal 0 !
+    lenght equ 8     ; border lenght
     
     base_row   equ 5 ; coordinates of top left corner - row
     base_col   equ 7 ;                                - column
@@ -25,8 +21,8 @@ DATA SEGMENT
     bl_corner db base_row + lenght + 1 , base_col               ; row 2 , col 1
     br_corner db base_row + lenght + 1 , base_col + lenght + 1  ; row 2 , col 2
 
-    color    equ 7Fh ; border color
-    bg_color equ 70H ; background color
+    color    equ 7Fh
+    bg_color equ 70H
     
     ascii_chr equ 177
     

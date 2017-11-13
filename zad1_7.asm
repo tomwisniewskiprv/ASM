@@ -1,54 +1,204 @@
 ;worksheet  1
 ;exercise   7
 
-; Draw a square
-
 %TITLE "SQUARE"
     .8086
     .MODEL small
-    .STACK 256
-    .DATA
+MAINSTACK SEGMENT STACK 
+    dw 1024 dup(?) 
+    sptr label word
+    
+MAINSTACK ENDS
+DATA SEGMENT
+    
+    lenght equ 5     ; border lenght
+    
+    base_row   equ 5 ; coordinates of top left corner - row
+    base_col   equ 7 ;                                - column
+    
+    tl_corner db base_row              , base_col               ; row 1 , col 1
+    tr_corner db base_row              , base_col + lenght + 1  ; row 1 , col 2
+    bl_corner db base_row + lenght + 1 , base_col               ; row 2 , col 1
+    br_corner db base_row + lenght + 1 , base_col + lenght + 1  ; row 2 , col 2
 
-    .CODE
+    color    equ 7Fh
+    bg_color equ 70H
+    
+DATA ENDS
+CODE SEGMENT
+    assume cs:code , ds:data
 MAIN PROC
-    mov ah , 02h
-    mov dl , 201 ; 1
-    int 21h
-    mov dl , 205 ; =
-    int 21h
-    int 21h
-    mov dl , 187 ; 2
-    int 21h
+   ; Load data segments
+    mov ax , seg data
+    mov ds , ax
     
-    mov dl , 0Dh
-    int 21h
-    mov dl , 0Ah
-    int 21h
+    mov ax , mainstack
+    mov ss , ax
+    mov sp , offset sptr
     
-    mov dl , 186 ; |
-    int 21h
-    mov dl , 32
-    int 21h
-    int 21h
-    mov dl , 186
-    int 21h
+    ; main loop
+    call DrawBorder
+    call DrawCorners
     
-    mov dl , 0Dh
-    int 21h
-    mov dl , 0Ah
-    int 21h
-    
-    mov dl , 200 ; 3
-    int 21h
-    mov dl , 205 ; =
-    int 21h
-    int 21h
-    mov dl , 188 ; 4
-    int 21h
-
 Exit:
+    mov dh , 12
+    mov dl , 0
+    mov ah , 02h
+    int 10h
+    
     mov ah , 4Ch
     int 21h
     
 MAIN ENDP
+; Set cursor position: int 10h    AH=02h  BH = Page Number, DH = Row, DL = Column
+
+; Write character and attribute at cursor position :
+; int 10h    AH=09h  AL = Character, BH = Page Number, BL = Color, CX = Number of times 
+
+DrawBorder PROC
+    mov bh , 0   ; page number
+    mov al , 205 ; border char
+    mov bl , color ; grey color ?
+        
+    ; horizontal borders
+    mov dh , tl_corner[0]  ; top left corner
+    mov dl , tl_corner[1]
+    mov ah , 02h
+    int 10h
+    
+    mov cx , lenght ; width
+    add cx , 2
+    draw_top_border:
+        push cx
+        mov ah , 09h
+        mov cx , 01h
+        int 10h
+        
+        mov ah , 02h
+        inc dl     ; next column
+        int 10h
+        
+        pop cx
+        loop draw_top_border
+    
+    mov dh , bl_corner[0]  ; bottom left corner
+    mov dl , bl_corner[1]
+    mov ah , 02h
+    int 10h
+    
+    mov cx , lenght ; width
+    add cx , 2
+    draw_bottom_border:
+        push cx
+        mov ah , 09h
+        mov cx , 01h
+        int 10h
+        
+        mov ah , 02h
+        inc dl     ; next column
+        int 10h
+        
+        pop cx
+        loop draw_bottom_border
+  
+    ; vertical borders  
+    mov bh , 0   ; page number
+    mov al , 186 ; border char
+    mov bl , 7fh ; grey color ?  
+    
+    mov dh , tl_corner[0]  ; top left corner
+    mov dl , tl_corner[1]
+    mov ah , 02h
+    int 10h
+    
+    mov cx , lenght ; height
+    add cx , 2
+    draw_left_border:
+        push cx
+        mov ah , 09h
+        mov cx , 01h
+        int 10h
+        
+        mov ah , 02h
+        inc dh     ; next row
+        int 10h
+        
+        pop cx
+        loop draw_left_border    
+    
+    mov dh , tr_corner[0]  ; top right corner
+    mov dl , tr_corner[1]
+    mov ah , 02h
+    int 10h
+    
+    mov cx , lenght ; height
+    add cx , 2
+    draw_right_border:
+        push cx
+        mov ah , 09h
+        mov cx , 01h
+        int 10h
+        
+        mov ah , 02h
+        inc dh     ; next row
+        int 10h
+        
+        pop cx
+        loop draw_right_border    
+           
+    ret
+DrawBorder ENDP
+
+DrawCorners PROC
+    mov bh , 0     ; page number
+    mov bl , color ; color
+        
+    ; top left corner
+    mov al , 201 ; border char
+    mov dh , tl_corner[0]  
+    mov dl , tl_corner[1]
+    mov ah , 02h
+    int 10h
+    
+    mov ah , 09h
+    mov cx , 01h
+    int 10h
+        
+    ; top right corner
+    mov al , 187 ; border char
+    mov dh , tr_corner[0]  
+    mov dl , tr_corner[1]
+    mov ah , 02h
+    int 10h
+    
+    mov ah , 09h
+    mov cx , 01h
+    int 10h
+       
+    ; bottom left corner
+    mov al , 200 ; border char
+    mov dh , bl_corner[0]  
+    mov dl , bl_corner[1]
+    mov ah , 02h
+    int 10h
+    
+    mov ah , 09h
+    mov cx , 01h
+    int 10h
+       
+    ; bottom right corner
+    mov al , 188 ; border char
+    mov dh , br_corner[0]  
+    mov dl , br_corner[1]
+    mov ah , 02h
+    int 10h
+    
+    mov ah , 09h
+    mov cx , 01h
+    int 10h
+   
+    ret 
+DrawCorners ENDP
+
+CODE ENDS
 END MAIN
