@@ -330,6 +330,7 @@ GenerateStars PROC
     mov al , 00h
     int 15h
     
+    ; random column ======================
     mov ah , 2ch ; get system time
     int 21h      ; CH = hours CL = minutes DH=seconds DL=1/100s microseconds
     xor ax , ax
@@ -337,7 +338,7 @@ GenerateStars PROC
     
     cmp al , 80
     jl le80    ; if dl less equal 80 
-    sub al , 20 ; substract 20 to get random column value
+    sub al , 21 ; substract 20 to get random column value
     le80:
     mov col , al
     
@@ -347,6 +348,7 @@ GenerateStars PROC
     mov star_col[bx] , al
     push cx
     
+    ; random row ==========================
     mov cx , 01h
     mov dx , 70h
     mov ah , 86h ; delay
@@ -357,18 +359,14 @@ GenerateStars PROC
     int 21h      ; CH = hours CL = minutes DH=seconds DL=1/100s microseconds
     xor ax , ax
     mov al , dl
-    
-    ;cmp al , 100
-    ;jne le50
-    ;sub al , 76
-    
+      
     cmp al , 50
-    jle le50    ; if dl less equal 50 
+    jl le50    ; if dl less equal 50 
     sub al , 50 ; substract 50 to get random row value
     le50:
-    cmp al , 23 ; row range 0 - 24 , where 24 is reserved for status text
+    cmp al , 24 ; row range 0 - 24 , where 24 is reserved for status text
     jl le25
-    sub al , 26
+    sub al , 24
     le25:
    
     mov row , al

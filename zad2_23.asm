@@ -26,6 +26,10 @@ r_interval equ interval         ; red star interval
 b_interval equ interval * 2     ; blue star interval
 g_interval equ interval * 3     ; green star inverval
 
+speed_limit dw 2AAAh ; 5555h
+
+cur_time db 00h ; stored current second
+
 star_row   db stars dup (00h) ; row
 star_col   db stars dup (00h) ; column
 star_clr   db stars dup (00h) ; color
@@ -120,6 +124,9 @@ Main PROC
     
     ; clear screen
     call ClrScr
+    
+    ; get current time
+    call GetStartingTime
 
     ; cursor starting position
     mov ah , 02h
@@ -288,7 +295,7 @@ Main PROC
     call DrawSnake
    
     call DrawStars
-   
+    call UpdateSnakeSpeed
     call DelayProc
     
     jmp readUntilESC ; main loop
@@ -310,6 +317,76 @@ Main ENDP
 ;   PROCEDURES                ;
 ;-----------------------------;
 ;=====================================================================
+;=====================================================================
+GetStartingTime PROC
+    push ax
+    push bx
+    push cx
+    push dx
+   
+    xor ax , ax
+    xor bx , bx
+    xor cx , cx
+    xor dx , dx
+    
+    mov AH , 2Ch
+    int 21h
+    mov cur_time , dh ; save time
+    
+    pop dx
+    pop cx
+    pop bx
+    pop ax 
+    ret
+GetStartingTime ENDP
+
+UpdateSnakeSpeed PROC
+; Automatic speed increase based on time elapsed
+    push ax
+    push bx
+    push cx
+    push dx
+   
+    xor ax , ax
+    xor bx , bx
+    xor cx , cx
+    xor dx , dx
+    
+    mov ah , 2Ch
+    int 21h
+    cmp cur_time , dh  ; Here is the comparison 
+    jne next_sec
+    jmp exit_proc 
+    
+    next_sec:
+    mov cur_time , dh   ; old time <= new time
+    
+    mov ax , delay      ; speed up by 1 interval (red star)
+                        ; 1/3 of sec #speed_limit
+    cmp ax , speed_limit   ; >
+    jge set_time
+
+    sub ax , 97Dh        ;r_interval / 4
+    mov delay , ax
+    jmp set_time
+    
+    set_time:
+    cmp cur_time , 60
+    je reset_time
+    jmp exit_proc
+    
+    reset_time:
+    mov cur_time , 0
+    
+    exit_proc:
+    pop dx
+    pop cx
+    pop bx
+    pop ax 
+    ret
+UpdateSnakeSpeed ENDP
+;=====================================================================
+
 DelayProc PROC
 ; Delay between next frames     
 
@@ -352,8 +429,8 @@ GenerateStars PROC
     
     next_c:
     push cx
-    mov cx , 02h
-    mov dx , 50h
+    mov cx , 01h
+    mov dx , 53h
     mov ah , 86h ; delay
     mov al , 00h
     int 15h
@@ -366,7 +443,7 @@ GenerateStars PROC
     
     cmp al , 80
     jl le80    ; if dl less equal 80 
-    sub al , 20 ; substract 20 to get random column value
+    sub al , 21 ; substract 20 to get random column value
     le80:
     mov col , al
     
@@ -378,7 +455,7 @@ GenerateStars PROC
     
     ; random row ==========================
     mov cx , 01h
-    mov dx , 70h
+    mov dx , 34h
     mov ah , 86h ; delay
     mov al , 00h
     int 15h
@@ -389,21 +466,20 @@ GenerateStars PROC
     mov al , dl  ; microseconds ; save system time for later
       
     cmp al , 50
-    jle le50    ; if dl less equal 50 
+    jl le50    ; if dl less equal 50 
     sub al , 50 ; substract 50 to get random row value
     le50:
     cmp al , 24 ; row range 0 - 24 , where 24 is reserved for status text
     jl le25
-    sub al , 26
+    sub al , 24
     le25:
-   
     mov row , al
     
     pop cx
     mov bx , cx
     mov star_row[bx] , al
     
-    ; assign random color to star at cx
+    ; assign random color to star at cx ==========================
     mov al , dl          ; dl 1/100 sec from system time
     mov ah , 00h
     mov bx , 03h
